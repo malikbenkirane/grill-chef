@@ -72,3 +72,43 @@ tool surface shape (create/get/wait tools, naming); field-by-field JSON
 schema; widget semantics (Other, comments, editing, skip); sidebar scope
 (global session index vs per-session rounds nav); recap/legend screens;
 port/config; read-only enforcement; theme; naming; closing flow.
+
+## Round 3 — tools, schema, widgets, sidebar
+
+Questions served: HTTP listener ownership (Q3.1), tool surface (Q3.2),
+field-level schema (Q3.3), widget semantics (Q3.4), sidebar scope (Q3.5).
+
+**Settled:**
+
+- [lifecycle] Direction: HTTP listener should OUTLIVE the MCP client (detached
+  daemon), unlike the single-owner recommendation. Exact detach mechanism
+  deferred to round 4.
+- [mcp/tool] Tools kept apart, verb-first: `start_grill`, `drive_round`,
+  `recover_grill`. User asked to re-check against
+  `~/dev/superpowers/skills/writing-skills` guidelines for an updated
+  recommendation (done: see Round 4 Q4.2).
+- [schema] `drive_round` sends only the current round's JSON; previously driven
+  rounds live in global state; screens render FROM STATE. Formatting shortcut:
+  essential blocks transferred as markdown; server translates markdown → HTML
+  at render time; leaves room for skill-side copy changes without server
+  schema churn.
+- [caps] Rounds capped at 5; rounds keep arriving while frontier is unresolved.
+- [session] `start_grill` accepts a session name used for in-browser rendering
+  (session denomination, tab/heading).
+- [answers/widgets] Review model: choices/comments reviewed on submit screen;
+  ongoing round's questions reachable/enumerated from sidebar; multi-comment
+  list with add/remove; a choice is mandatory (no default, no prefill), exactly
+  one choice; zero comments is OK except "Other" which requires at least one
+  comment; submission requires all questions answered; "Next" enabled only
+  once a choice is made; gray "Skip" button sits next to Next; back navigation
+  via sidebar index. If not too complex: debounced autosave with a
+  disappearing "Saved!" indicator next to the top-right buttons.
+- [screens] Sidebar scope settled as per-grill rounds only; global list /
+  history / dismiss live in a station home route `/`.
+> Note: user's Q3.4 text effectively chose a strict-plus-skip variant; the
+> skip flag from Q1 result plan survives.
+
+**Remaining frontier (retained, ~6):** daemon detach mechanics; naming +
+writing-skills-informed skill testing; recap/legend screen shape; closing flow
+after frontier empty; repo/binary naming + config (port range, theme);
+read-only enforcement beyond submit-immutability.
