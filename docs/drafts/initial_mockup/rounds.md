@@ -32,6 +32,43 @@ shape; answer semantics (choice/comments/Other); recap + legend screens;
 multi-session concurrency; port configuration; read-only history enforcement;
 theme; static assets; naming; fallback when browser unavailable; closing flow.
 
-## Round 2
+## Round 2 — seam between agent and browser
 
-(next round goes here)
+Questions served: transport + global state (Q2.1), durability/recovery of the
+blocking wait (Q2.2), session id minting and URL shape (Q2.3), payload
+granularity across rounds (Q2.4), tool result content and answer immutability
+(Q2.5).
+
+**Settled:**
+
+- [mcp] Global state on disk: state database under
+  `os.UserCacheDir() + "/grill-chef/state.db"` so restart, crash or tool
+  timeout can restore a grill.
+- [mcp] Transport: MCP over stdio. The browser HTTP server is NOT something the
+  user starts: it lazily starts if not already running, and this lifecycle
+  design is explicitly deferred to round 3 discussion.
+- [session] Session id: minted by a first MCP tool call that starts the grill
+  session (before round 1, not per round); the agent keeps the id in its chat
+  history and passes it on follow-up calls; stateless handlers + global cache
+  let state be restored from that id alone.
+- [session] Wild stalls are expected: a grill station can sit idle for hours or
+  days. If a tool call times out, the agent (or user asking) can call a
+  recovery-style tool: it checks the cache for pending answers, and if none are
+  submitted, it re-opens the browser for that session — same drill as first
+  time.
+- [session] URL namespacing: `/s/<id>/` prefix; ambiguity dismissed. Sidebar
+  may additionally list pending sessions, a session history at the bottom, and
+  allow dismissing (clearing) sessions.
+- [caps/frontier] No planned-round placeholders in the sidebar: grill-me's
+  frontier is answer-dependent, and placeholder rounds would add noise and
+  bias from hypothetical guesses.
+- [schema/result] Clarification: "comments read-only" means immutable.
+  Agent-side state responsibility: the agent's chat history already holds each
+  round's answers; full transcript echo in the tool result is undecided
+  (deferred; leaning no).
+
+**Remaining frontier (retained, ~9):** HTTP auto-start lifecycle take-back;
+tool surface shape (create/get/wait tools, naming); field-by-field JSON
+schema; widget semantics (Other, comments, editing, skip); sidebar scope
+(global session index vs per-session rounds nav); recap/legend screens;
+port/config; read-only enforcement; theme; naming; closing flow.
