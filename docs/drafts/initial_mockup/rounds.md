@@ -145,8 +145,27 @@ structured vs markdown boundary (Q4.3), closing flow (Q4.4), naming/config
   No config file; flags + env only. Skill sources live in this repo under
   `skills/grill-me-json/`. Theming: Tailwind CSS with dark/light mode switch.
 
-**Remaining frontier (retained, 3):** stop-scope confirmation (stop is
-human-CLI-only, no MCP tool — confirm); Tailwind vs "few external deps"
-debate (recommendation: check in generated CSS, tailwind is a build-time
-asset, not a Go dependency); past-round read-only enforcement (likely settled
+past-round read-only enforcement (likely settled
 by state-based rendering).
+
+## Round 5 — closing round
+
+Questions served: stop-scope (Q5.1), Tailwind dependency policy (Q5.2),
+past-round immutability (Q5.3). All three confirmed via the round recap being
+returned unchanged (recommendations accepted as written).
+
+**Settled:**
+
+- [lifecycle] Stop is CLI-only (`grill-chef stop`), never an MCP tool, now or
+  later; an explicit "no stop tool" clause goes into the skill prose. The
+  agent can only idempotently (re)start the daemon.
+- [theme] Tailwind is a build-time asset only: Tailwind standalone CLI
+  (vendored under `bin/tailwind`, Makefile-managed) generates static CSS that
+  is committed; zero new Go dependencies; self-contained binary promise
+  preserved. Theme (dark/light) persists per browser via localStorage.
+- [screens] Past-round routes render immutable by construction (pure render
+  from answer state, no edit widgets); the current round is the only editable
+  surface with internal back-nav. Copy-to-clipboard and JSON snapshot buttons
+  remain possible UI-stage niceties that do not reopen the tree.
+
+**Tree closed. Legend follows in the session transcript.**
