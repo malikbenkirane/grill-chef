@@ -112,3 +112,41 @@ field-level schema (Q3.3), widget semantics (Q3.4), sidebar scope (Q3.5).
 writing-skills-informed skill testing; recap/legend screen shape; closing flow
 after frontier empty; repo/binary naming + config (port range, theme);
 read-only enforcement beyond submit-immutability.
+
+## Round 4 — daemon, tools, schema boundary, closing flow, packaging
+
+Questions served: detach mechanics (Q4.1), naming + testing gate (Q4.2),
+structured vs markdown boundary (Q4.3), closing flow (Q4.4), naming/config
+(Q4.5).
+
+**Settled:**
+
+- [lifecycle] Detached daemon child; state db records pid + port; recovery
+  tools health-check via pid and respawn if stale. User reinforced: the
+  server's lifespan is fully decoupled from the MCP client; the agent can only
+  (re)start it, and has NO capability to stop it. (The `stop` affordance is a
+  human CLI command, never an MCP tool.) Flag for round 5: tailwind dep
+  tension and stop-scope confirmation.
+- [mcp] Tools renamed with namespace prefix: `grill_start`, `grill_round`,
+  `grill_recover`; `grill_recover` auto-opens the browser. Skill work gated by
+  writing-skills Iron Law: baseline pressure scenarios without the skill →
+  write skill → re-test under pressure → close loopholes.
+- [schema] Structured envelope + markdown inline: question round number, ids,
+  titles, options list (with option ids), `recommended_index`, reminders tags
+  stay STRUCTURAL; option label text, abstract paragraphs, intro, recap prose
+  and comments are markdown blobs. Radio buttons bind structurally to option
+  ids.
+- [closing] Final optional `legend` payload sent by a last `grill_round` call;
+  browser renders a legend screen; the shared-understanding confirmation
+  stays exclusively in chat (grill-me rule preserved). Closed sessions are
+  archived in the station home.
+- [dist] Single binary `grill-chef`, subcommands: `mcp` (stdio default),
+  `web` (manual daemon start), `stop` (human-only), `ui` (open station home).
+  No config file; flags + env only. Skill sources live in this repo under
+  `skills/grill-me-json/`. Theming: Tailwind CSS with dark/light mode switch.
+
+**Remaining frontier (retained, 3):** stop-scope confirmation (stop is
+human-CLI-only, no MCP tool — confirm); Tailwind vs "few external deps"
+debate (recommendation: check in generated CSS, tailwind is a build-time
+asset, not a Go dependency); past-round read-only enforcement (likely settled
+by state-based rendering).
