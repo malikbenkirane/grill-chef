@@ -1,6 +1,9 @@
 package round
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Invariants violated by malformed rounds or answers.
 var (
@@ -26,6 +29,27 @@ func (q Question) Validate() error {
 	if q.Recommendation != RecommendationNone &&
 		(q.Recommendation < 1 || int(q.Recommendation) > len(q.Choices)) {
 		return ErrRecommendationOutOfRange
+	}
+	return nil
+}
+
+// Validate checks the round's own invariants and then every question.
+// First error wins; per-question errors are wrapped with the 1-based
+// question position for debugging agent payloads.
+func (r QuestionRound) Validate() error {
+	if r.SessionID == "" {
+		return ErrEmptySessionID
+	}
+	if r.Number < 1 {
+		return ErrBadRoundNumber
+	}
+	if len(r.Questions) < 1 {
+		return ErrNoQuestions
+	}
+	for i, q := range r.Questions {
+		if err := q.Validate(); err != nil {
+			return fmt.Errorf("question %d: %w", i+1, err)
+		}
 	}
 	return nil
 }
