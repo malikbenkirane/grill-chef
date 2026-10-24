@@ -53,3 +53,15 @@ func (r QuestionRound) Validate() error {
 	}
 	return nil
 }
+
+// Validate checks the legend round's own invariants: a session id and at
+// least one branch.
+func (r LegendRound) Validate() error {
+	if r.SessionID == "" {
+		return ErrEmptySessionID
+	}
+	if len(r.Branches) < 1 {
+		return ErrEmptyLegend
+	}
+	return nil
+}
