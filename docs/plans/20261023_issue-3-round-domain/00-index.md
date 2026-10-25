@@ -4,7 +4,7 @@ Sub-plans (execution order):
 - [ ] 01-round-vocabulary — Go module, `internal/domain/round` base types: `Markdown`, `Tag`, `Kind`, `Choice`, `ChoiceIndex`, `Recommendation`, `Question`, round/legend sum types, `SchemaVersion` const
 - [ ] 02-answer-and-validation — `Answer`, `AnswerSheet`, `Validate()` on every type, `Answer.String()` rendering
 - [ ] 03-session-domain — `internal/domain/session`: `Status` (`Active|Closed`), `Session`, `Close()`
-- [ ] 04-contract-and-issue-docs — `docs/drafts/contract.md`, rewrite `docs/issues/3.md`, create `docs/issues/19.md`
+- [ ] 04-contract-and-issue-docs — `docs/drafts/contract.md`, rewrite `docs/issues/3.md`, create `docs/issues/20.md`
 
 Concurrent-eligible batches: `[02-answer-and-validation, 03-session-domain]` (after 01).
 

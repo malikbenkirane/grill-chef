@@ -99,7 +99,7 @@ are superseded by this document.
 
 - `round.SchemaVersion = 1` stamps every wire payload via the adapter.
 - The version validator over persisted payloads and the change policy are
-  specified in `docs/issues/19.md`.
+  specified in `docs/issues/20.md`.
 
 ## Testing gate
 

@@ -38,5 +38,5 @@ func (k Kind) String() string {
 
 // SchemaVersion is the version stamped on wire payloads by the DTO adapter.
 // The first breaking shape change bumps it and adds a state.db validator
-// (see docs/issues/19.md).
+// (see docs/issues/20.md).
 const SchemaVersion = 1

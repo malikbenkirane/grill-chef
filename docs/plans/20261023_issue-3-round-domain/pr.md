@@ -14,7 +14,7 @@ Implements the pure DDD domain layer agreed in the issue-3 grill legend: the qui
   - `Validate()` on Question, QuestionRound, LegendRound, AnswerSheet with `errors.Is`-able sentinel errors; per-question errors wrapped with the 1-based position.
   - `Answer.String(choices)` rendering for the agent's chat history.
 - **`internal/domain/session`** — the pure grill descriptor: `Active | Closed` status, guarded `Close()` (double legend submission cannot corrupt the archive rules); no daemon/pid state.
-- **Docs** — `docs/drafts/contract.md` (single contract, superseding the JSON examples in the old #3), rewritten `docs/issues/3.md`, new `docs/issues/19.md` (state.db payload-version validator), and pointer notes in #1, #4, #5, #13.
+- **Docs** — `docs/drafts/contract.md` (single contract, superseding the JSON examples in the old #3), rewritten `docs/issues/3.md`, new `docs/issues/20.md` (state.db payload-version validator #20), and pointer notes in #1, #4, #5, #13.
 
 ## Commits
 
@@ -31,7 +31,7 @@ Implements the pure DDD domain layer agreed in the issue-3 grill legend: the qui
 9. `feat(session): add pure grill session domain`
 10. `docs: add round/answer contract`
 11. `docs(issues): rewrite #3 as domain-code contract`
-12. `docs(issues): add payload version validator issue`
+12. `docs(issues): add payload version validator issue` (as 19.md, later renumbered to 20)
 13. `docs(issues): note contract changes in directly hit issues`
 
 ## Deviations from the plan
@@ -45,4 +45,4 @@ Documented in `docs/plans/20261023_issue-3-round-domain/deviations.md`; the only
 
 ## Dependencies
 
-Design base with no dependencies: #1, #4, #5, #8, #10, #11, #13, #15 consume this contract; #19 extends it with the version validator.
+Design base with no dependencies: #1, #4, #5, #8, #10, #11, #13, #15 consume this contract; #20 extends it with the version validator.
