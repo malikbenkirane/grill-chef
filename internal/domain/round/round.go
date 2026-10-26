@@ -1,5 +1,7 @@
 package round
 
+import "time"
+
 // Round is one grill round sent by the agent. The two concrete types are
 // gated by their kind; no single struct holds both phases' fields, so an
 // illegal phase/field combination is unrepresentable.
@@ -26,6 +28,12 @@ type QuestionRound struct {
 	Intro     Markdown
 	Recap     []Branch
 	Questions []Question
+
+	// UpdatedAt is the store's staleness commodity (issue 1): it rides the
+	// aggregate after rehydration, but is never consulted for session
+	// consistency correctness. Duck-typed by sessions with pending rounds
+	// that sat idle for days.
+	UpdatedAt time.Time
 }
 
 func (QuestionRound) Kind() Kind { return KindQuestions }
@@ -47,6 +55,12 @@ type LegendRound struct {
 	SessionID string
 	Title     string
 	Branches  []LegendBranch
+
+	// UpdatedAt is the store's staleness commodity (issue 1): it rides the
+	// aggregate after rehydration, but is never consulted for session
+	// consistency correctness. Duck-typed by sessions with pending rounds
+	// that sat idle for days.
+	UpdatedAt time.Time
 }
 
 func (LegendRound) Kind() Kind { return KindLegend }

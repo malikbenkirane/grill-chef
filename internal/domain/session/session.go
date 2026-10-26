@@ -24,6 +24,10 @@ const (
 	StatusActive
 	// StatusClosed means the legend round was submitted (maps to "closed").
 	StatusClosed
+	// StatusDismissed means the human cleared the session from the station
+	// home (issue 14). Dismiss is a status change, never a delete; the
+	// record is preserved and rehydrates as dismissable history.
+	StatusDismissed
 )
 
 func (s Status) String() string {
@@ -32,6 +36,8 @@ func (s Status) String() string {
 		return "active"
 	case StatusClosed:
 		return "closed"
+	case StatusDismissed:
+		return "dismissed"
 	case StatusUndefined:
 		return "undefined"
 	default:
