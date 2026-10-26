@@ -2,13 +2,25 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use supervised-plan-execution to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up grill-chef's persistent store foundation: Go module, the two allowed dependencies, hexagonal port interface, the five-table SQLite schema applied by embedded goose migrations (WAL + `busy_timeout`), and a race-tested adapter both writer processes can boot.
+**Goal:** Stand up grill-chef's persistent store foundation: Go module, the two allowed dependencies, domain upgrades (`StatusDismissed`, `UpdatedAt` staleness fields), the hexagonal port interface typed with `internal/domain` aggregates, a six-table SQLite schema applied by embedded goose migrations (WAL + `busy_timeout`), and a race-tested adapter boot both writer processes can use.
 
-**Architecture:** Hexagonal — the domain talks to `internal/port/store` (interface + types); the SQLite adapter lives in `internal/port/store/sqlite` and applies schema migrations from an embedded `migrations` package using `goose.NewProvider` + `provider.Up(ctx)` with a `goose.SessionLocker` so the MCP process and web daemon can migrate concurrently. Dual-writer topology: MCP owns sessions/questions/round payloads, the daemon owns answers/comments and round status — enforced per-method in sub-plan 02.
+**Architecture:** Hexagonal — the domain talks to `internal/port/store` (interface only, domain types); the SQLite adapter lives in `internal/port/store/sqlite`, owns local types + conversion, and applies schema migrations from an embedded `migrations` package using `goose.NewProvider` + `provider.Up(ctx)` with a `goose.SessionLocker` so the MCP process and web daemon can migrate concurrently. Dual-writer topology: MCP owns sessions/questions/round payloads/legends, the daemon owns answers/comments and round status — enforced per-method in sub-plan 02.
 
 **Tech Stack:** Go 1.22+, `github.com/glebarez/go-sqlite` (pure-Go driver), `github.com/pressly/goose/v3` provider API, stdlib `database/sql`, `go test`. Commit operations use `jj` only (core-commands rules; never `git`).
 
 **Normative sources:** `docs/issues/1.md` (requirements), `docs/drafts/state.md` (decision trail), ulearn TIL goose-v3-programmatic-migrations (provider pattern).
+
+**Design decisions settled in grilling (2026-10-25)** — the implementer must not lose these:
+
+- The port references `internal/domain` types exclusively; adapters own local types and conversion. No second set of sandwich types is created in `internal/port/store`.
+- Two MCP-owned create methods reflect the round kind typology: `CreateQuestionRound` and `CreateLegendRound`. The legend round has its own `legends` relation; it never lives in `rounds`.
+- No round-cap or round-numbering CHECK at the store layer; contiguity and legend-at-end are domain policy (`IsSessionConsistent`, sub-plan 03).
+- Persistence stores exactly what the domain holds: 1-based choice indexes with domain sentinels (`ChoiceIndexNone = -1`, `RecommendationNone = 0`) and no edge translation.
+- Comments drop AUTOINCREMENT; PK `(session_id, round_number, question_index, comment_seq)` yields stable per-question identity for issue 8's DELETE route.
+- `rounds.payload` holds intro + recap only for question rounds (questions serialize to their own rows, no post-load merge); `legends.payload` holds the full `LegendRound`.
+- `domain/session` gains `StatusDismissed` (the domain is the state's truth; set by issue 14's station home); issue 1's status note and schema count are amended in Task 8.
+- `domain/round` concrete round types and `domain/session.Session` gain `UpdatedAt` staleness fields (staleness commodity from issue 1 — never consulted for correctness).
+- The migration session locker is a single `BEGIN IMMEDIATE` with the context deadline; SQLite itself arbitrates cross-process contention under WAL + `busy_timeout`.
 
 ---
 
@@ -40,7 +52,7 @@ Expected: exactly those two requirement rows plus goose's transitive deps. If a 
 
 Run: `go build ./... && go test ./... 2>&1 | tail -1`
 
-Expected: `go build` succeeds with no Go files yet; test output ends `[no test files]` (or equivalent zero-package result).
+Expected: `go build` succeeds with the existing `internal/domain` packages; test output ends `ok` (or equivalent).
 
 - [ ] **Step 4: Commit with caveman-commit**
 
@@ -55,130 +67,103 @@ Message subject: `feat(store): init module with pure-Go sqlite and goose deps`
 
 ---
 
-### Task 2: Domain types
+### Task 2: Domain upgrades — StatusDismissed and UpdatedAt staleness fields
 
 **Files:**
-- Create: `internal/port/store/types.go`
-- Test: `internal/port/store/types_test.go`
+- Modify: `internal/domain/session/session.go`
+- Test: `internal/domain/session/dismissed_test.go`
+- Modify: `internal/domain/round/round.go`
+- Test: `internal/domain/round/updatedat_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
+
+`internal/domain/session/dismissed_test.go`:
 
 ```go
-package store
+package session
 
 import "testing"
 
-func TestStatusConstants(t *testing.T) {
-	if StatusActive != "active" || StatusClosed != "closed" || StatusDismissed != "dismissed" {
-		t.Fatal("session status constants drifted from docs/issues/1.md")
+func TestStatusDismissed(t *testing.T) {
+	if StatusDismissed != Status(3) {
+		t.Fatalf("StatusDismissed must be the iota follower of StatusClosed, got %d", StatusDismissed)
 	}
-	if RoundPending != "pending" || RoundSubmitted != "submitted" {
-		t.Fatal("round status constants drifted from docs/issues/1.md")
+	if got := StatusDismissed.String(); got != "dismissed" {
+		t.Fatalf("StatusDismissed.String(): want %q, got %q", "dismissed", got)
 	}
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `go test ./internal/port/store/ -run TestStatusConstants -v`
-
-Expected: FAIL — undefined: `StatusActive` (or first missing identifier).
-
-- [ ] **Step 3: Write the domain types**
+`internal/domain/round/updatedat_test.go`:
 
 ```go
-package store
+package round
 
 import (
-	"encoding/json"
+	"testing"
 	"time"
 )
 
-type SessionStatus string
-
-const (
-	StatusActive    SessionStatus = "active"
-	StatusClosed    SessionStatus = "closed"
-	StatusDismissed SessionStatus = "dismissed"
-)
-
-type RoundStatus string
-
-const (
-	RoundPending   RoundStatus = "pending"
-	RoundSubmitted RoundStatus = "submitted"
-)
-
-type Session struct {
-	ID        string
-	Name      string
-	Status    SessionStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type RecapOption struct {
-	ID    string
-	Label string
-}
-
-type Round struct {
-	SessionID string
-	Number    int
-	Status    RoundStatus
-	Payload   json.RawMessage
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type Question struct {
-	SessionID     string
-	Round         int
-	Index         int
-	Title         string
-	Abstract      string
-	Options       []RecapOption
-	Recommended   int
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-
-type Answer struct {
-	SessionID     string
-	Round         int
-	QuestionIndex int
-	ChosenOption  *int
-	UpdatedAt     time.Time
-}
-
-type Comment struct {
-	ID            int64
-	SessionID     string
-	Round         int
-	QuestionIndex int
-	Body          string
-	CreatedAt     time.Time
-}
-
-type SessionAggregate struct {
-	Session   Session
-	Rounds    []Round
-	Questions []Question
-	Answers   []Answer
-	Comments  []Comment
+func TestRoundsCarryUpdatedAt(t *testing.T) {
+	now := time.Now()
+	q := QuestionRound{}
+	if !q.UpdatedAt.IsZero() {
+		t.Fatal("fresh QuestionRound must carry a zero UpdatedAt")
+	}
+	q.UpdatedAt = now
+	if !q.UpdatedAt.Equal(now) {
+		t.Fatal("QuestionRound.UpdatedAt not assignable")
+	}
+	l := LegendRound{}
+	if !l.UpdatedAt.IsZero() {
+		t.Fatal("fresh LegendRound must carry a zero UpdatedAt")
+	}
 }
 ```
 
-Design notes the implementer must keep:
-- Round `Payload` is the provenance JSON (`json.RawMessage`) — intro + recap branches — written once by MCP; question *bodies* live in the `questions` table (never inside the payload), so render queries never re-parse question JSON.
-- `Recommended` is an int option index, `-1` meaning "no recommendation"; keep it non-null in Go to avoid nil checks at call sites.
-- `UpdatedAt` columns on session/round/question/answer are the staleness commodity from `docs/drafts/state.md` — they are never consulted for session-consistency correctness (sub-plan 03).
+- [ ] **Step 2: Run tests to verify they fail**
 
-- [ ] **Step 4: Run test to verify it passes**
+Run: `go test ./internal/domain/session/ -run TestStatusDismissed -v && go test ./internal/domain/round/ -run TestRoundsCarryUpdatedAt -v`
 
-Run: `go test ./internal/port/store/ -run TestStatusConstants -v`
+Expected: FAIL — `StatusDismissed` undefined, and field `UpdatedAt` missing on both round structs.
 
-Expected: PASS.
+- [ ] **Step 3: Apply the domain edits**
+
+In `internal/domain/session/session.go` add, after `StatusClosed`:
+
+```go
+	// StatusDismissed means the human cleared the session from the station
+	// home (issue 14). Dismiss is a status change, never a delete; the
+	// record is preserved and rehydrates as dismissable history.
+	StatusDismissed
+```
+
+and extend `String()` with:
+
+```go
+	case StatusDismissed:
+		return "dismissed"
+```
+
+In `internal/domain/round/round.go` add an exported `UpdatedAt` field to both `QuestionRound` and `LegendRound`:
+
+```go
+	// UpdatedAt is the store's staleness commodity (issue 1): it rides the
+	// aggregate after rehydration, but is never consulted for session
+	// consistency correctness. Duck-typed by sessions with pending rounds
+	// that sat idle for days.
+	UpdatedAt time.Time
+```
+
+The `time` import must be added to the file's import block.
+
+Also note the settlement: `session.Status.String()` renders the store-edge literals — `active`, `closed`, `dismissed` — matching the `sessions.status` CHECK in the migration (Task 4).
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `go test ./internal/domain/... -race`
+
+Expected: PASS across `session` and `round` both.
 
 - [ ] **Step 5: Commit with caveman-commit**
 
@@ -189,11 +174,11 @@ Use `caveman-commit` for the message content, then the commit sequence:
 3. Write the commit message to the temp file
 4. `jj describe --stdin < "/tmp/tmp.XXXXXX" && rm "/tmp/tmp.XXXXXX" && jj new`
 
-Message subject: `feat(store): domain types for sessions rounds questions answers comments`
+Message subject: `feat(domain): dismissed status and staleness timestamps`
 
 ---
 
-### Task 3: Port interface (ownership encoded in the surface)
+### Task 3: Port interface (ownership encoded in the surface, domain-typed)
 
 **Files:**
 - Create: `internal/port/store/port.go`
@@ -203,34 +188,50 @@ Message subject: `feat(store): domain types for sessions rounds questions answer
 ```go
 package store
 
-import "context"
+import (
+	"context"
+
+	"github.com/malikbenkirane/grill-chef/internal/domain/round"
+	"github.com/malikbenkirane/grill-chef/internal/domain/session"
+)
 
 // Store is the domain's persistence port. Every method belongs to exactly one
 // writer process (docs/issues/1.md ownership matrix):
 //
-//	MCP-owned:      CreateSession, GetSession, CreateRound, AddQuestion, CloseSession
-//	daemon-owned:   UpsertAnswer, SubmitRound, AddComment, DeleteComment
-//	shared readers: LoadSession, ListSessions, IsSessionConsistent
+//	MCP-owned:      CreateSession, CloseSession, CreateQuestionRound, CreateLegendRound
+//	daemon-owned:   UpsertAnswer, SubmitRound, AddComment, DeleteComment, DismissSession
+//	shared readers: ListSessions, LoadSession, IsSessionConsistent
+//
+// The port speaks only in domain aggregates; the SQLite adapter owns local
+// types and converts at the edge. Persistence stores domain conventions
+// verbatim (1-based choice indexes, sentinels) with no translation.
 type Store interface {
-	// MCP-owned
-	CreateSession(ctx context.Context, id, name string) (Session, error)
-	GetSession(ctx context.Context, id string) (Session, error)
-	CreateRound(ctx context.Context, sessionID string, number int, payload Round) error
-	AddQuestion(ctx context.Context, q Question) error
+	// MCP-owned: sessions and rounds payload agents (stdio tool calls)
+	CreateSession(ctx context.Context, s *session.Session) error
 	CloseSession(ctx context.Context, id string) error
+	CreateQuestionRound(ctx context.Context, r round.QuestionRound) error
+	CreateLegendRound(ctx context.Context, r round.LegendRound) error
 
-	// daemon-owned
-	UpsertAnswer(ctx context.Context, sessionID string, round, questionIndex int, chosen *int) error
-	SubmitRound(ctx context.Context, sessionID string, round int) error
-	AddComment(ctx context.Context, sessionID string, round, questionIndex int, body string) (Comment, error)
-	DeleteComment(ctx context.Context, commentID int64) error
+	// daemon-owned: browser autosave / submit / comment / station-home dismiss
+	UpsertAnswer(ctx context.Context, sessionID string, roundNumber, questionIndex int, choice round.ChoiceIndex) error
+	SubmitRound(ctx context.Context, sessionID string, roundNumber int) error
+	AddComment(ctx context.Context, sessionID string, roundNumber, questionIndex int, body string) (seq int, err error)
+	DeleteComment(ctx context.Context, sessionID string, roundNumber, questionIndex, seq int) error
+	DismissSession(ctx context.Context, id string) error
 
 	// shared readers
-	ListSessions(ctx context.Context) ([]Session, error)
-	LoadSession(ctx context.Context, id string) (SessionAggregate, error)
+	ListSessions(ctx context.Context) ([]session.Session, error)
+	LoadSession(ctx context.Context, id string) (*session.Session, error)
 	IsSessionConsistent(ctx context.Context, id string) (bool, error)
 }
 ```
+
+Design notes the implementer must keep:
+- `CreateSession` takes the `*session.Session` domain aggregate whole (ID minted by the caller's tool layer); the adapter stamps nothing but persists fields as-is.
+- `UpsertAnswer` persists exactly the domain choice: `ChoiceIndexNone` (-1) and `ChoiceIndexOther` (0) travel unmodified as `answers.chosen_option`; the "Needs at least one comment" rule is domain `AnswerSheet.Validate`, called by the tool layer, never by the store.
+- `AddComment` returns the per-question `comment_seq` (PK `(session_id, round_number, question_index, comment_seq)`), the identity issue 8's `DELETE /s/<id>/r/<n>/q/<m>/comment/<i>` route carries round-tripped to the browser.
+- `DismissSession` is a status change (`StatusDismissed`), never a delete — retention keeps everything (issue 14 / decision trail).
+- `StatusUndefined` and `KindUndefined` never reach the store; the adapter returns an error if an undefined status arrives — see 02 for the exact test.
 
 - [ ] **Step 2: Verify the package compiles**
 
@@ -247,11 +248,11 @@ Use `caveman-commit` for the message content, then the commit sequence:
 3. Write the commit message to the temp file
 4. `jj describe --stdin < "/tmp/tmp.XXXXXX" && rm "/tmp/tmp.XXXXXX" && jj new`
 
-Message subject: `feat(store): port interface encoding dual-writer ownership matrix`
+Message subject: `feat(store): domain-typed port interface encoding ownership matrix`
 
 ---
 
-### Task 4: Initial goose migration (five tables)
+### Task 4: Initial goose migration (six tables)
 
 **Files:**
 - Create: `internal/port/store/sqlite/migrations/00001_init.go`
@@ -295,7 +296,7 @@ func TestInitMigrationCreatesTables(t *testing.T) {
 		t.Fatalf("want exactly 1 migration applied on fresh db, got %d", len(results))
 	}
 
-	want := []string{"sessions", "rounds", "questions", "answers", "comments"}
+	want := []string{"sessions", "rounds", "questions", "answers", "comments", "legends"}
 	for _, name := range want {
 		var got string
 		row := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, name)
@@ -363,7 +364,7 @@ var initStatements = []string{
 	)`,
 	`CREATE TABLE IF NOT EXISTS rounds (
 		session_id   TEXT NOT NULL,
-		round_number INTEGER NOT NULL CHECK (round_number BETWEEN 1 AND 5),
+		round_number INTEGER NOT NULL,
 		status       TEXT NOT NULL CHECK (status IN ('pending','submitted')),
 		payload      TEXT NOT NULL,
 		created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -378,7 +379,8 @@ var initStatements = []string{
 		title             TEXT NOT NULL,
 		abstract          TEXT NOT NULL,
 		options           TEXT NOT NULL,
-		recommended_index INTEGER NOT NULL DEFAULT -1,
+		recommended_index INTEGER NOT NULL DEFAULT 0,
+		reminders         TEXT NOT NULL DEFAULT '[]',
 		created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (session_id, round_number) REFERENCES rounds(session_id, round_number) ON DELETE CASCADE,
@@ -395,13 +397,21 @@ var initStatements = []string{
 		PRIMARY KEY (session_id, round_number, question_index)
 	)`,
 	`CREATE TABLE IF NOT EXISTS comments (
-		id             INTEGER PRIMARY KEY AUTOINCREMENT,
 		session_id     TEXT NOT NULL,
 		round_number   INTEGER NOT NULL,
 		question_index INTEGER NOT NULL,
+		comment_seq    INTEGER NOT NULL,
 		body           TEXT NOT NULL,
 		created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (session_id, round_number, question_index) REFERENCES questions(session_id, round_number, question_index) ON DELETE CASCADE
+		FOREIGN KEY (session_id, round_number, question_index) REFERENCES questions(session_id, round_number, question_index) ON DELETE CASCADE,
+		PRIMARY KEY (session_id, round_number, question_index, comment_seq)
+	)`,
+	`CREATE TABLE IF NOT EXISTS legends (
+		session_id   TEXT PRIMARY KEY,
+		payload      TEXT NOT NULL,
+		created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_rounds_session ON rounds(session_id, round_number)`,
 	`CREATE INDEX IF NOT EXISTS idx_questions_session ON questions(session_id, round_number)`,
@@ -427,6 +437,7 @@ func downInit(ctx context.Context, db *sql.DB) error {
 		`DROP TABLE IF EXISTS comments`,
 		`DROP TABLE IF EXISTS answers`,
 		`DROP TABLE IF EXISTS questions`,
+		`DROP TABLE IF EXISTS legends`,
 		`DROP TABLE IF EXISTS rounds`,
 		`DROP TABLE IF EXISTS sessions`,
 	} {
@@ -439,9 +450,13 @@ func downInit(ctx context.Context, db *sql.DB) error {
 ```
 
 Schema notes the implementer must keep:
-- `rounds.payload` holds the round provenance JSON only (`json.RawMessage` on the domain `Round`); question bodies are always question rows — that is the domain separation from the grill transcript.
-- `answers.chosen_option` is nullable (`pending` round = no choice saved yet); non-null AFTER the user's first autosave.
-- `comments.id` is AUTOINCREMENT so the `DELETE /s/<id>/r/<n>/q/<m>/comment/<i>` route carries a stable per-session monotonic index.
+- The sessions `status` CHECK still carries the three literals `('active','closed','dismissed')` — these are the store-edge rendering of the domain's `session.Status.String()` (including `dismissed` after Task 2).
+- Round numbering has NO CHECK: contingency and legend-at-end are domain policy (`IsSessionConsistent`, sub-plan 03), not schema policy. The MCP observation rounds do run 1..5 plus a legend round, but the store never hard-codes a count.
+- `rounds.payload` holds the question-round JSON minus the questions (`json.RawMessage` of intro + recap) — the questions table is the single source of truth for question bodies. `legends.payload` holds the whole `LegendRound` JSON (branches, bullets) — it is never copied anywhere.
+- `answers.chosen_option` is nullable and stores the domain's raw `round.ChoiceIndex` values: `-1` (none/skip), `0` (other — free-text comments carry the content), 1..N (listed choice). Non-null only after the user's first autosave.
+- `questions.recommended_index` stores the domain's `Recommendation`: `0` = none, 1..N otherwise. `reminders` carries the serialized `[]Reminder` array (`'[]'` when empty).
+- `comments.comment_seq` is monotonic per question (allocated by `MAX(comment_seq)+1` inside the write transaction, see 02); no AUTOINCREMENT — comment identity is `(session, round, question, seq)` for the DELETE route in issue 8.
+- `updated_at` columns on session/round/question/answer/legend are the staleness commodity from `docs/drafts/state.md` — never consulted for session-consistency correctness (sub-plan 03).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -458,7 +473,7 @@ Use `caveman-commit` for the message content, then the commit sequence:
 3. Write the commit message to the temp file
 4. `jj describe --stdin < "/tmp/tmp.XXXXXX" && rm "/tmp/tmp.XXXXXX" && jj new`
 
-Message subject: `feat(store): goose migration for five-table session schema`
+Message subject: `feat(store): goose migration for six-table session schema`
 
 ---
 
@@ -468,7 +483,7 @@ Message subject: `feat(store): goose migration for five-table session schema`
 - Create: `internal/port/store/sqlite/store.go`
 - Test: `internal/port/store/sqlite/store_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -523,26 +538,9 @@ func TestNewSetsWALAndBusyTimeout(t *testing.T) {
 		t.Fatalf("busy_timeout: want 5000, got %d", busyMs)
 	}
 }
-
-func TestNewOnFreshDbCreatesMarkerFiles(t *testing.T) {
-	dir := t.TempDir()
-	s, err := New(Config{Path: filepath.Join(dir, "state.db")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-
-	// WAL leaves its sidecars next to the db; their presence (not content) is
-	// part of the dual-writer contract we document in issue 8.
-	for _, side := range []string{"state.db-wal", "state.db-shm"} {
-		if _, statErr := os.Stat(filepath.Join(dir, side)); statErr != nil {
-			t.Logf("sidecar %s not found (%v) — acceptable before first WAL write", side, statErr)
-		}
-	}
-}
 ```
 
-Hmm — `os.Stat` on `state.db-wal` is racy across platforms (WAL sidecars may not exist until first write), so this test must be *tolerant* of their absence (the `t.Logf` path), asserting only the pragmatic contract: connection works, journal mode is WAL, foreign keys on, busy timeout set. The first two rules above are the real assertions.
+Note on sidecars: `os.Stat` on `state.db-wal`/`state.db-shm` is racy (they may not exist until the first WAL write), so the tests DO NOT assert sidecar presence — only the connection, journal mode, foreign keys, and busy timeout. The WAL sidecar contract is documented in issue 8, not asserted in tests here.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -559,12 +557,9 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 	"net/url"
-	"sync"
-	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/pressly/goose/v3"
@@ -607,7 +602,7 @@ func fileDSN(path string) string {
 }
 ```
 
-Boot — idempotent migration with the session locker:
+Boot — idempotent migration with the single-shot session locker:
 
 ```go
 func (s *Store) Boot(ctx context.Context) error {
@@ -636,32 +631,25 @@ func (s *Store) Ready(ctx context.Context) error {
 
 func (s *Store) Close() error { return s.db.Close() }
 
-// sessionLocker guards migrationProvider.Up against the two processes racing
-// to migrate the same file (goose.WithSessionLocker contract).
+// sessionLocker serializes concurrent migrations against the same file by
+// holding one dedicated connection open inside an IMMEDIATE transaction for
+// the duration of the Up call. Cross-process contention is SQLite's job
+// (WAL + busy_timeout): the context deadline governs, no retry loop here.
 type sessionLocker struct {
-	mu   sync.Mutex
 	conn *sql.Conn
 }
 
 func (l *sessionLocker) Lock(ctx context.Context, db *sql.DB) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("sqlite: locker conn: %w", err)
 	}
-	for i := 0; i < 100; i++ {
-		if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err == nil {
-			l.conn = conn
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(50 * time.Millisecond):
-		}
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		_ = conn.Close()
+		return fmt.Errorf("sqlite: locker begin: %w", err)
 	}
-	return errors.New("sqlite: timed out acquiring migration lock")
+	l.conn = conn
+	return nil
 }
 
 func (l *sessionLocker) Unlock(_ context.Context, _ *sql.DB) error {
@@ -675,7 +663,9 @@ func (l *sessionLocker) Unlock(_ context.Context, _ *sql.DB) error {
 }
 ```
 
-Remove unused imports if the compiler flags any — the intended final import list is exactly: `context`, `database/sql`, `embed`, `errors`, `fmt`, `io/fs`, `net/url`, `sync`, `time`, plus the two external imports. `go vet ./internal/port/store/sqlite/` must be clean.
+Removed from the previous draft version: the `sync.Mutex`-guarded 100×50 ms retry loop. The `busy_timeout(5000)` DSN pragma already makes `BEGIN IMMEDIATE` wait up to 5 s for cross-process contention; a bounded context deadline (whatever the caller of `New` provides) bounds the total wait. If a runner failed with "database is locked" under Task 7's race test, the timeout is too tight — tune the context deadline in the caller, never resurrect the loop in the locker.
+
+The `errors`/`sync`/`time` imports from the old draft are gone too. The final import list is exactly: `context`, `database/sql`, `embed`, `fmt`, `io/fs`, `net/url`, plus the two external imports. `go vet ./internal/port/store/sqlite/` must be clean.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -707,7 +697,6 @@ Message subject: `feat(store): sqlite adapter boot with WAL, busy_timeout, locke
 package sqlite
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -726,7 +715,7 @@ func newTestStore(t *testing.T) *Store {
 }
 ```
 
-- [ ] **Step 2: Add an in-memory variant for fast locale tests**
+- [ ] **Step 2: Add an in-memory variant for fast SQL-semantics tests**
 
 ```go
 // newMemoryStore is for tests that assert pure SQL semantics (no WAL, no
@@ -816,11 +805,11 @@ func TestTwoStoresRacingOnSameFileBothMigrate(t *testing.T) {
 	var tables int
 	if err := stores[0].db.QueryRow(
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN
-		 ('sessions','rounds','questions','answers','comments')`).Scan(&tables); err != nil {
+		 ('sessions','rounds','questions','answers','comments','legends')`).Scan(&tables); err != nil {
 		t.Fatal(err)
 	}
-	if tables != 5 {
-		t.Fatalf("want 5 tables after concurrent migration, got %d", tables)
+	if tables != 6 {
+		t.Fatalf("want 6 tables after concurrent migration, got %d", tables)
 	}
 }
 ```
@@ -829,7 +818,7 @@ func TestTwoStoresRacingOnSameFileBothMigrate(t *testing.T) {
 
 Run: `go test ./internal/port/store/sqlite/ -run TestTwoStores -race -v -count 5`
 
-Expected: PASS on every count; if a runner ever fails with "no such table" or a deadlock, the `sessionLocker` is wrong — a failed retry loop is not acceptable, fix the locker before proceeding.
+Expected: PASS on every count; if a runner ever fails with "no such table" or a lock-timeout, the locker's single `BEGIN IMMEDIATE` is inside a lost context (Task 5's settled design) — inspect the caller's deadline before assuming SQLite contention is the problem.
 
 - [ ] **Step 3: Race-detect the store package as a whole**
 
@@ -850,10 +839,12 @@ Message subject: `test(store): two processes race on same store both migrate saf
 
 ---
 
-### Task 8: Full build + vet + dependency audit
+### Task 8: Full build + vet + dependency audit + docs reconciliation
 
 **Files:**
-- No new files — validation gate
+- Modify: `docs/issues/1.md` (status note + schema bullet)
+- Modify: `docs/drafts/state.md` (legends decision-trail bullet)
+- No Go files — validation gate
 
 - [ ] **Step 1: Build and vet everything**
 
@@ -873,10 +864,42 @@ Run: `CGO_ENABLED=0 go build ./... && go list -m all | grep -i 'sqlite'`
 
 Expected: build succeeds with cgo disabled; only `glebarez/go-sqlite` + its `modernc.org` transitive graph appears, no `mattn/go-sqlite3`. If any cgo-dependent sqlite shows up, the wrong driver got linked — stop and fix before handing off.
 
-- [ ] **Step 4: Commit with caveman-commit (if anything was touched)**
+- [ ] **Step 4: Amend `docs/issues/1.md`**
 
-If Steps 1–3 forced a change, commit it via the `caveman-commit` + `core-commands` sequence (same as Tasks 1–7). If nothing was touched, skip — do not commit empty changes.
+Three edits, keeping every other line untouched:
 
-- [ ] **Step 5: Verify docs alignment before marking this sub-plan done**
+1. The parenthetical note at the top of Requirements — replace it so statuses name the domain's truth:
 
-Re-read `docs/issues/1.md` and `docs/drafts/state.md`; confirm the implemented schema matches both normative sources on: five tables, composite indexes, WAL + `busy_timeout`, status enums (3 session values, 2 round values), staleness columns present but unused for correctness. List any drift you find and raise it in chat **before** moving to sub-plan 02.
+   *Old:*
+   > session statuses are the domain's `Active | Closed` (rendered as `active | closed` at the store edge).
+
+   *New:*
+   > session statuses are the domain's `StatusActive | StatusClosed | StatusDismissed` — the domain is the state's truth, and the store renders its `String()` values (`active | closed | dismissed`) at the edge. `StatusDismissed` is set by the station home (issue 14), written by the web daemon through `DismissSession`.
+
+2. The schema bullet — replace "five tables" and add `legends`:
+
+   *New bullet:*
+   > `sessions`, `rounds`, `questions`, `answers`, `comments`, `legends` (comments are first-class, matching the per-comment DELETE route in issue 8; `legends` stores the closing legend round in its own relation — `rounds` holds question rounds only). FK spine on `session_id`; no round-cap CHECK at the store layer; composite indexes on `(session_id, round)` and `(session_id, round, question)`. Full session rehydration is a single indexed read — no post-load merge in Go.
+
+3. The dual-writer topology table row for sessions — append the daemon's one exception (station-home dismiss):
+   > sessions | MCP, plus daemon's `DismissSession` (status change only, issue 14)
+
+- [ ] **Step 5: Amend `docs/drafts/state.md`**
+
+In the "Schema" section, replace the "Five tables: …" bullet with:
+
+> Six tables: `sessions`, `rounds`, `questions`, `answers`, `comments`, `legends`. The legend round was originally sketched as a row of `rounds` and **split off into its own `legends` relation** (one per session) once the kind-gated domain (`QuestionRound` vs `LegendRound`) landed: question-round rows carry questions/options/answers/comments, legend rows carry the closing legend payload whole; no round-cap CHECK lives in the store — contiguity and legend-at-end are domain policy enforced by `IsSessionConsistent`.
+
+And append to the same section:
+
+> Comments dropped AUTOINCREMENT for PK `(session_id, round_number, question_index, comment_seq)` — the identity the DELETE route in issue 8 carries is per-question sequence, stable across sessions; a global auto counter bought nothing.
+
+- [ ] **Step 6: Commit with caveman-commit (docs amendment)**
+
+Use `caveman-commit` for the message content, then the commit sequence (same temp-file pattern as Tasks 1–7).
+
+Message subject: `docs(issue-1): six-table schema, dismissed status, daemon dismiss write`
+
+- [ ] **Step 7: Verify docs alignment before marking this sub-plan done**
+
+Re-read `docs/issues/1.md` and `docs/drafts/state.md`; confirm the implemented schema matches both normative sources on: six tables (incl. `legends`), composite indexes, WAL + `busy_timeout`, status enums (3 session values via `session.Status.String()`, 2 round values), staleness columns present but unused for correctness. List any drift you find and raise it in chat **before** moving to sub-plan 02.
