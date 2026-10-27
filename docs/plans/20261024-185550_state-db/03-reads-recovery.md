@@ -18,7 +18,7 @@
 - Modify: `internal/domain/round/round.go`
 - Test: `internal/domain/round/answers_field_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 package round
@@ -37,13 +37,13 @@ func TestQuestionRoundCarriesAlignedAnswers(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/domain/round/ -run TestQuestionRoundCarriesAlignedAnswers -v`
 
 Expected: FAIL — field undefined.
 
-- [ ] **Step 3: Add the field**
+- [x] **Step 3: Add the field**
 
 In `internal/domain/round/round.go`, inside `QuestionRound`, add after `UpdatedAt`:
 
@@ -56,13 +56,13 @@ In `internal/domain/round/round.go`, inside `QuestionRound`, add after `UpdatedA
 	Answers []Answer
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/domain/... -race`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit**
+- [x] **Step 5: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence from `core-commands`:
 
@@ -81,7 +81,7 @@ Message subject: `feat(domain): aligned rehydrated answers on question round`
 - Create: `internal/port/store/sqlite/readers.go`
 - Test: `internal/port/store/sqlite/readers_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 package sqlite
@@ -152,13 +152,13 @@ func TestLoadSessionUnknownIdErrors(t *testing.T) {
 
 Imports: add `"github.com/malikbenkirane/grill-chef/internal/domain/session"`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestLoadSession -v`
 
 Expected: FAIL — `LoadSession` undefined.
 
-- [ ] **Step 3: Implement the reader (complete, no placeholders)**
+- [x] **Step 3: Implement the reader (complete, no placeholders)**
 
 ```go
 package sqlite
@@ -422,13 +422,13 @@ The QuestionRound payload unmarshals straight into the domain struct? No — `qr
 
 The final `readers.go` must carry the second block (the qPayload round-trip) and NOT the naive unmarshal; delete the marked line before your first passing build. `qrow.status` is scanned but unused by the reader (no merge in Go) — drop the field from the struct and the SELECT list instead, keeping the read lean; the round status lives in the `rounds` table for `IsSessionConsistent` (Task 3), never consulted by reassembly.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestLoadSession -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit**
+- [x] **Step 5: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence from `core-commands` (temp file pattern, `jj describe --stdin`).
 
@@ -444,7 +444,7 @@ Message subject: `feat(store): single-read session rehydration with aligned answ
 - Create: `internal/port/store/sqlite/consistency.go`
 - Test: `internal/port/store/sqlite/consistency_test.go`
 
-- [ ] **Step 1: Extend the payload contract (the prerequisite)**
+- [x] **Step 1: Extend the payload contract (the prerequisite)**
 
 `qPayload` in `mapping.go` gains:
 
@@ -454,7 +454,7 @@ Message subject: `feat(store): single-read session rehydration with aligned answ
 
 and `marshalRoundPayload` sets `m.QuestionCount = len(qr.Questions)`. Update 02's `TestQuestionPayloadExcludesQuestions` to assert `m.QuestionCount == 1` after unmarshaling `raw` (a scalar, not question bodies). The question bodies never ride the payload — the count only.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```go
 package sqlite
@@ -508,13 +508,13 @@ func TestConsistencyUnknownSessionIsError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestConsistent|TestInconsistent' -v`
 
 Expected: FAIL — `IsSessionConsistent` undefined.
 
-- [ ] **Step 4: Implement the check (complete, no broken SQL drafts)**
+- [x] **Step 4: Implement the check (complete, no broken SQL drafts)**
 
 ```go
 package sqlite
@@ -594,13 +594,13 @@ func (s *Store) IsSessionConsistent(ctx context.Context, id string) (bool, error
 
 Imports: this file needs only `context`, `encoding/json`, `fmt`.
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestConsistent|TestInconsistent' -v`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit with caveman-commit (same sequence as Task 1)**
+- [x] **Step 6: Commit with caveman-commit (same sequence as Task 1)**
 
 Message subject: `feat(store): gap-based session consistency check`
 
@@ -611,7 +611,7 @@ Message subject: `feat(store): gap-based session consistency check`
 **Files:**
 - Test: `internal/port/store/sqlite/staleness_test.go`
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```go
 package sqlite
@@ -642,13 +642,13 @@ func TestStalenessFieldsPopulate(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it passes**
+- [x] **Step 2: Run test to verify it passes**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestStalenessFieldsPopulate -v`
 
 Expected: PASS if Task 2's parse is complete. If it fails, the stamp parse in `readers.go` missed a path (session, round, or legend) — fix there; do not weaken to "staleness optional".
 
-- [ ] **Step 3: Commit with caveman-commit (same sequence as Task 1)**
+- [x] **Step 3: Commit with caveman-commit (same sequence as Task 1)**
 
 Message subject: `test(store): staleness fields populate through rehydration`
 
@@ -660,7 +660,7 @@ Message subject: `test(store): staleness fields populate through rehydration`
 - Create: `internal/port/daemoninfo/daemoninfo.go`
 - Test: `internal/port/daemoninfo/daemoninfo_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package daemoninfo
@@ -702,13 +702,13 @@ func TestWriteIsAtomicOnSamePath(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/port/daemoninfo/ -v`
 
 Expected: FAIL — package undefined.
 
-- [ ] **Step 3: Implement the marker helpers**
+- [x] **Step 3: Implement the marker helpers**
 
 ```go
 package daemoninfo
@@ -760,13 +760,13 @@ func Read(path string) (Info, error) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/daemoninfo/ -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit (same sequence as Task 1)**
+- [x] **Step 5: Commit with caveman-commit (same sequence as Task 1)**
 
 Message subject: `feat(store): daemon pid/port marker file helpers`
 
@@ -777,7 +777,7 @@ Message subject: `feat(store): daemon pid/port marker file helpers`
 **Files:**
 - Test: `internal/port/store/sqlite/acceptance_test.go`
 
-- [ ] **Step 1: Write the acceptance tests**
+- [x] **Step 1: Write the acceptance tests**
 
 ```go
 package sqlite
@@ -879,19 +879,19 @@ func TestConcurrentMultisessionWritesDoNotCorrupt(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they pass**
+- [x] **Step 2: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestFullSessionRoundtrip|TestConcurrentMultisessionWrites' -race -v -count 3`
 
 Expected: PASS on every count.
 
-- [ ] **Step 3: Full suite under race**
+- [x] **Step 3: Full suite under race**
 
 Run: `go test ./... -race && go vet ./...`
 
 Expected: `ok` everywhere; vet clean.
 
-- [ ] **Step 4: Commit with caveman-commit (same sequence as Task 1)**
+- [x] **Step 4: Commit with caveman-commit (same sequence as Task 1)**
 
 Message subject: `test(store): full session roundtrip and multi-session concurrency acceptance`
 
@@ -902,16 +902,16 @@ Message subject: `test(store): full session roundtrip and multi-session concurre
 **Files:**
 - Verification only — no new files
 
-- [ ] **Step 1: Verify docs alignment**
+- [x] **Step 1: Verify docs alignment**
 
 Re-read `docs/issues/1.md` and `docs/drafts/state.md`; confirm the implementation matches both normative sources on: six tables (incl. `legends`), single indexed read, gap-based `IsSessionConsistent`, staleness populated but never consulted for correctness, marker file outside the db, `StatusDismissed` written through `DismissSession`. List any drift found and raise it in chat **before** declaring the sub-plan done.
 
-- [ ] **Step 2: Verify the plan set is fully executed**
+- [x] **Step 2: Verify the plan set is fully executed**
 
 Run: `grep -c '\- \[ \]' docs/plans/20261024-185550_state-db/*.md`
 
 Expected: 0 unchecked in every sub-plan file; the 00-index tick for `03-reads-recovery` happens in its own tick-only commit after this plan closes.
 
-- [ ] **Step 3: Commit only if anything was touched**
+- [x] **Step 3: Commit only if anything was touched**
 
 Commit via the `caveman-commit` + `core-commands` sequence. If nothing was touched, skip — do not commit empty changes.
