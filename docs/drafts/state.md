@@ -38,10 +38,12 @@ tool calls over HTTP only to bounce them back into process-local state.
 
 ## Schema
 
-- Five tables: `sessions`, `rounds`, `questions`, `answers`, `comments`.
+- Six tables: `sessions`, `rounds`, `questions`, `answers`, `comments`, `legends`. The legend round was originally sketched as a row of `rounds` and **split off into its own `legends` relation** (one per session) once the kind-gated domain (`QuestionRound` vs `LegendRound`) landed: question-round rows carry questions/options/answers/comments, legend rows carry the closing legend payload whole; no round-cap CHECK lives in the store — contiguity and legend-at-end are domain policy enforced by `IsSessionConsistent`.
   Comments are first-class (own rows) because the DELETE-per-comment route in
   issue 8 makes them independently mutable; answers are separate from question
   payloads because the autosave path is per-question and hot.
+
+  Comments dropped AUTOINCREMENT for PK `(session_id, round_number, question_index, comment_seq)` — the identity the DELETE route in issue 8 carries is per-question sequence, stable across sessions; a global auto counter bought nothing.
 - FK spine on `session_id`, composite indexes on `(session_id, round)` and
   `(session_id, round, question)`. Full rehydration is one indexed read; no
   post-load merge in Go.
