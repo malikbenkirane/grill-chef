@@ -29,7 +29,7 @@
 **Files:**
 - Create: `go.mod`
 
-- [ ] **Step 1: Initialize the module and fetch dependencies**
+- [x] **Step 1: Initialize the module and fetch dependencies**
 
 Run:
 
@@ -42,19 +42,19 @@ go mod tidy
 
 Expected: `go.mod` contains both dependencies, no other externals. `glebarez/go-sqlite` must resolve with no cgo requirement (pure-Go).
 
-- [ ] **Step 2: Verify the module graph**
+- [x] **Step 2: Verify the module graph**
 
 Run: `go list -m all | grep -E 'glebarez|pressly'`
 
 Expected: exactly those two requirement rows plus goose's transitive deps. If a mattn/go-sqlite3 or cgo-dependent driver appears in the graph, stop — that contradicts the single-binary decision in `docs/drafts/state.md`.
 
-- [ ] **Step 3: Sanity-build**
+- [x] **Step 3: Sanity-build**
 
 Run: `go build ./... && go test ./... 2>&1 | tail -1`
 
 Expected: `go build` succeeds with the existing `internal/domain` packages; test output ends `ok` (or equivalent).
 
-- [ ] **Step 4: Commit with caveman-commit**
+- [x] **Step 4: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence from `core-commands`:
 
@@ -75,7 +75,7 @@ Message subject: `feat(store): init module with pure-Go sqlite and goose deps`
 - Modify: `internal/domain/round/round.go`
 - Test: `internal/domain/round/updatedat_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `internal/domain/session/dismissed_test.go`:
 
@@ -121,13 +121,13 @@ func TestRoundsCarryUpdatedAt(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/domain/session/ -run TestStatusDismissed -v && go test ./internal/domain/round/ -run TestRoundsCarryUpdatedAt -v`
 
 Expected: FAIL — `StatusDismissed` undefined, and field `UpdatedAt` missing on both round structs.
 
-- [ ] **Step 3: Apply the domain edits**
+- [x] **Step 3: Apply the domain edits**
 
 In `internal/domain/session/session.go` add, after `StatusClosed`:
 
@@ -159,13 +159,13 @@ The `time` import must be added to the file's import block.
 
 Also note the settlement: `session.Status.String()` renders the store-edge literals — `active`, `closed`, `dismissed` — matching the `sessions.status` CHECK in the migration (Task 4).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/domain/... -race`
 
 Expected: PASS across `session` and `round` both.
 
-- [ ] **Step 5: Commit with caveman-commit**
+- [x] **Step 5: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -183,7 +183,7 @@ Message subject: `feat(domain): dismissed status and staleness timestamps`
 **Files:**
 - Create: `internal/port/store/port.go`
 
-- [ ] **Step 1: Write the interface**
+- [x] **Step 1: Write the interface**
 
 ```go
 package store
@@ -233,13 +233,13 @@ Design notes the implementer must keep:
 - `DismissSession` is a status change (`StatusDismissed`), never a delete — retention keeps everything (issue 14 / decision trail).
 - `StatusUndefined` and `KindUndefined` never reach the store; the adapter returns an error if an undefined status arrives — see 02 for the exact test.
 
-- [ ] **Step 2: Verify the package compiles**
+- [x] **Step 2: Verify the package compiles**
 
 Run: `go build ./internal/port/store/`
 
 Expected: success (no implementations yet — the adapter in Task 5 returns a `*Store` that satisfies this interface method-by-method in sub-plan 02; for now only the interface must compile).
 
-- [ ] **Step 3: Commit with caveman-commit**
+- [x] **Step 3: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -258,7 +258,7 @@ Message subject: `feat(store): domain-typed port interface encoding ownership ma
 - Create: `internal/port/store/sqlite/migrations/00001_init.go`
 - Test: `internal/port/store/sqlite/migrations_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 package sqlite
@@ -332,13 +332,13 @@ func TestInitMigrationIdempotent(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestInitMigration -v`
 
 Expected: FAIL — undefined: `migrationsFS`.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 ```go
 package migrations
@@ -458,13 +458,13 @@ Schema notes the implementer must keep:
 - `comments.comment_seq` is monotonic per question (allocated by `MAX(comment_seq)+1` inside the write transaction, see 02); no AUTOINCREMENT — comment identity is `(session, round, question, seq)` for the DELETE route in issue 8.
 - `updated_at` columns on session/round/question/answer/legend are the staleness commodity from `docs/drafts/state.md` — never consulted for session-consistency correctness (sub-plan 03).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestInitMigration -v`
 
 Expected: both tests PASS.
 
-- [ ] **Step 5: Commit with caveman-commit**
+- [x] **Step 5: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -483,7 +483,7 @@ Message subject: `feat(store): goose migration for six-table session schema`
 - Create: `internal/port/store/sqlite/store.go`
 - Test: `internal/port/store/sqlite/store_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -542,13 +542,13 @@ func TestNewSetsWALAndBusyTimeout(t *testing.T) {
 
 Note on sidecars: `os.Stat` on `state.db-wal`/`state.db-shm` is racy (they may not exist until the first WAL write), so the tests DO NOT assert sidecar presence — only the connection, journal mode, foreign keys, and busy timeout. The WAL sidecar contract is documented in issue 8, not asserted in tests here.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestNew -v`
 
 Expected: FAIL — undefined: `New` (and `Config`).
 
-- [ ] **Step 3: Implement the adapter boot**
+- [x] **Step 3: Implement the adapter boot**
 
 ```go
 package sqlite
@@ -667,13 +667,13 @@ Removed from the previous draft version: the `sync.Mutex`-guarded 100×50 ms ret
 
 The `errors`/`sync`/`time` imports from the old draft are gone too. The final import list is exactly: `context`, `database/sql`, `embed`, `fmt`, `io/fs`, `net/url`, plus the two external imports. `go vet ./internal/port/store/sqlite/` must be clean.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -v`
 
 Expected: all tests PASS (including Task 4's migration tests, which share the file harness pattern above).
 
-- [ ] **Step 5: Commit with caveman-commit**
+- [x] **Step 5: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -691,7 +691,7 @@ Message subject: `feat(store): sqlite adapter boot with WAL, busy_timeout, locke
 **Files:**
 - Create: `internal/port/store/sqlite/harness_test.go`
 
-- [ ] **Step 1: Write the harness**
+- [x] **Step 1: Write the harness**
 
 ```go
 package sqlite
@@ -715,7 +715,7 @@ func newTestStore(t *testing.T) *Store {
 }
 ```
 
-- [ ] **Step 2: Add an in-memory variant for fast SQL-semantics tests**
+- [x] **Step 2: Add an in-memory variant for fast SQL-semantics tests**
 
 ```go
 // newMemoryStore is for tests that assert pure SQL semantics (no WAL, no
@@ -738,7 +738,7 @@ Run: `go test ./... 2>&1 | grep -v 'no test files'`
 
 Expected: `ok` for the two test packages so far.
 
-- [ ] **Step 3: Commit with caveman-commit**
+- [x] **Step 3: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -756,7 +756,7 @@ Message subject: `test(store): shared temp-file and in-memory sqlite harness`
 **Files:**
 - Test: `internal/port/store/sqlite/race_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```go
 package sqlite
@@ -814,19 +814,19 @@ func TestTwoStoresRacingOnSameFileBothMigrate(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it passes**
+- [x] **Step 2: Run test to verify it passes**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestTwoStores -race -v -count 5`
 
 Expected: PASS on every count; if a runner ever fails with "no such table" or a lock-timeout, the locker's single `BEGIN IMMEDIATE` is inside a lost context (Task 5's settled design) — inspect the caller's deadline before assuming SQLite contention is the problem.
 
-- [ ] **Step 3: Race-detect the store package as a whole**
+- [x] **Step 3: Race-detect the store package as a whole**
 
 Run: `go test ./... -race`
 
 Expected: all packages `ok` under the race detector.
 
-- [ ] **Step 4: Commit with caveman-commit**
+- [x] **Step 4: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -846,25 +846,25 @@ Message subject: `test(store): two processes race on same store both migrate saf
 - Modify: `docs/drafts/state.md` (legends decision-trail bullet)
 - No Go files — validation gate
 
-- [ ] **Step 1: Build and vet everything**
+- [x] **Step 1: Build and vet everything**
 
 Run: `go build ./... && go vet ./...`
 
 Expected: clean (no output).
 
-- [ ] **Step 2: Full test suite under race detector**
+- [x] **Step 2: Full test suite under race detector**
 
 Run: `go test ./... -race -count 2`
 
 Expected: `ok` for both test packages on both runs.
 
-- [ ] **Step 3: cgo audit — the single-binary promise**
+- [x] **Step 3: cgo audit — the single-binary promise**
 
 Run: `CGO_ENABLED=0 go build ./... && go list -m all | grep -i 'sqlite'`
 
 Expected: build succeeds with cgo disabled; only `glebarez/go-sqlite` + its `modernc.org` transitive graph appears, no `mattn/go-sqlite3`. If any cgo-dependent sqlite shows up, the wrong driver got linked — stop and fix before handing off.
 
-- [ ] **Step 4: Amend `docs/issues/1.md`**
+- [x] **Step 4: Amend `docs/issues/1.md`**
 
 Three edits, keeping every other line untouched:
 
@@ -884,7 +884,7 @@ Three edits, keeping every other line untouched:
 3. The dual-writer topology table row for sessions — append the daemon's one exception (station-home dismiss):
    > sessions | MCP, plus daemon's `DismissSession` (status change only, issue 14)
 
-- [ ] **Step 5: Amend `docs/drafts/state.md`**
+- [x] **Step 5: Amend `docs/drafts/state.md`**
 
 In the "Schema" section, replace the "Five tables: …" bullet with:
 
@@ -894,12 +894,12 @@ And append to the same section:
 
 > Comments dropped AUTOINCREMENT for PK `(session_id, round_number, question_index, comment_seq)` — the identity the DELETE route in issue 8 carries is per-question sequence, stable across sessions; a global auto counter bought nothing.
 
-- [ ] **Step 6: Commit with caveman-commit (docs amendment)**
+- [x] **Step 6: Commit with caveman-commit (docs amendment)**
 
 Use `caveman-commit` for the message content, then the commit sequence (same temp-file pattern as Tasks 1–7).
 
 Message subject: `docs(issue-1): six-table schema, dismissed status, daemon dismiss write`
 
-- [ ] **Step 7: Verify docs alignment before marking this sub-plan done**
+- [x] **Step 7: Verify docs alignment before marking this sub-plan done**
 
 Re-read `docs/issues/1.md` and `docs/drafts/state.md`; confirm the implemented schema matches both normative sources on: six tables (incl. `legends`), composite indexes, WAL + `busy_timeout`, status enums (3 session values via `session.Status.String()`, 2 round values), staleness columns present but unused for correctness. List any drift you find and raise it in chat **before** moving to sub-plan 02.
