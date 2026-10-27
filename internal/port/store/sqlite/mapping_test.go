@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/malikbenkirane/grill-chef/internal/domain/round"
@@ -24,6 +25,13 @@ func TestQuestionPayloadExcludesQuestions(t *testing.T) {
 	}
 	if len(raw) == 0 {
 		t.Fatal("empty payload")
+	}
+	var back qPayload
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.QuestionCount != 1 {
+		t.Fatalf("payload must carry the question count only, got %d", back.QuestionCount)
 	}
 }
 
