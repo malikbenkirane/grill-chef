@@ -19,6 +19,7 @@ type qPayload struct {
 	Number        int         `json:"number"`
 	Intro         string      `json:"intro"`
 	Recap         []branchDTO `json:"recap"`
+	QuestionCount int         `json:"question_count"`
 }
 
 type branchDTO struct {
@@ -39,6 +40,7 @@ func marshalRoundPayload(qr round.QuestionRound) ([]byte, error) {
 		SessionID:     qr.SessionID,
 		Number:        qr.Number,
 		Intro:         string(qr.Intro),
+		QuestionCount: len(qr.Questions),
 	}
 	for _, b := range qr.Recap {
 		tags := make([]string, len(b.NewlySettled))
