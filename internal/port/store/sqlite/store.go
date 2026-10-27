@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/url"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/pressly/goose/v3"
@@ -18,7 +19,8 @@ type Config struct {
 }
 
 type Store struct {
-	db *sql.DB
+	path string
+	db   *sql.DB
 }
 
 func New(cfg Config) (*Store, error) {
@@ -26,7 +28,7 @@ func New(cfg Config) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: open %q: %w", cfg.Path, err)
 	}
-	s := &Store{db: db}
+	s := &Store{path: cfg.Path, db: db}
 	if err := s.Boot(context.Background()); err != nil {
 		db.Close()
 		return nil, err
@@ -34,9 +36,41 @@ func New(cfg Config) (*Store, error) {
 	return s, nil
 }
 
+// ensureJournalMode switches the file to WAL. WAL is persistent, so once the
+// db is in WAL mode this is a lock-free no-op. If another process is mid-
+// migration (write tx open on a not-yet-WAL file, first boot only), the
+// switch fails with SQLITE_BUSY and the caller retries until it reads back
+// wal — the other migrator set it during its own successful boot.
+func (s *Store) ensureJournalMode() error {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var mode string
+		if err := s.db.QueryRow("PRAGMA journal_mode").Scan(&mode); err != nil {
+			return err
+		}
+		if mode == "wal" {
+			return nil
+		}
+		if err := s.db.QueryRow("PRAGMA journal_mode = WAL").Scan(&mode); err == nil {
+			if mode != "wal" {
+				return fmt.Errorf("sqlite: journal_mode: want wal, got %q", mode)
+			}
+			return nil
+		} else if time.Now().After(deadline) {
+			return fmt.Errorf("sqlite: journal mode: %w", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 // Boot runs the embedded goose migrations idempotently with the single-shot
 // session locker.
 func (s *Store) Boot(ctx context.Context) error {
+	if s.path != ":memory:" {
+		if err := s.ensureJournalMode(); err != nil {
+			return fmt.Errorf("sqlite: journal mode: %w", err)
+		}
+	}
 	sub, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
 		return fmt.Errorf("sqlite: migrations embed: %w", err)
@@ -72,7 +106,6 @@ func fileDSN(path string) string {
 	v := url.Values{}
 	v.Add("_pragma", "busy_timeout(5000)")
 	v.Add("_pragma", "foreign_keys(1)")
-	v.Add("_pragma", "journal_mode(WAL)")
 	return "file:" + path + "?" + v.Encode()
 }
 
