@@ -34,6 +34,13 @@ type QuestionRound struct {
 	// consistency correctness. Duck-typed by sessions with pending rounds
 	// that sat idle for days.
 	UpdatedAt time.Time
+
+	// Answers holds one rehydrated result per question, positionally
+	// aligned 1..len(Questions) Answer values mapped by question_index
+	// from the store; a nil/absent slot means the question was never
+	// autosaved. AnswerSheet is the write-side sibling for submit
+	// semantics; this field is the rehydrate-side home on the round.
+	Answers []Answer
 }
 
 func (QuestionRound) Kind() Kind { return KindQuestions }

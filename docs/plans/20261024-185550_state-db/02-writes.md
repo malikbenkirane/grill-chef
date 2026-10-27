@@ -18,7 +18,7 @@
 - Create: `internal/port/store/sqlite/mapping.go`
 - Test: `internal/port/store/sqlite/mapping_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -72,13 +72,13 @@ func TestQuestionPayloadExcludesQuestions(t *testing.T) {
 
 Fix the stray brace in the compiler if the copy above carries one — the file must contain exactly `TestQuestionPayloadExcludesQuestions` and `TestLegendPayloadCarriesWholeRound`.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go build ./internal/port/store/sqlite/`
 
 Expected: FAIL — `marshalRoundPayload` and `marshalLegendPayload` undefined.
 
-- [ ] **Step 3: Write the mapping layer**
+- [x] **Step 3: Write the mapping layer**
 
 ```go
 package sqlite
@@ -248,13 +248,13 @@ var _ = strings.TrimSpace // placeholder import trim if unused
 
 Remove the `strings` import if `go vet` flags it — the final import list is `encoding/json`, `fmt`, and the `round`/`session` domain imports only.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestQuestionPayload|TestLegendPayload' -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Verify the M question round-round-trips losslessly too**
+- [x] **Step 5: Verify the M question round-round-trips losslessly too**
 
 Add to `mapping_test.go`:
 
@@ -280,7 +280,7 @@ func TestQuestionRoundRowsLines(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Commit with caveman-commit**
+- [x] **Step 6: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence from `core-commands`:
 
@@ -299,7 +299,7 @@ Message subject: `feat(store): adapter payload dtos and column mappers`
 - Create: `internal/port/store/sqlite/session_writes.go`
 - Test: `internal/port/store/sqlite/session_writes_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -367,13 +367,13 @@ func TestCloseSessionFlipsStatusExactlyOnce(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestCreateSession|TestCloseSession' -v`
 
 Expected: FAIL — methods undefined on `*Store`.
 
-- [ ] **Step 3: Implement the MCP session write methods**
+- [x] **Step 3: Implement the MCP session write methods**
 
 ```go
 package sqlite
@@ -425,13 +425,13 @@ var _ = sql.ErrNoRows // silence import until readers use it (03)
 
 Remove the `var _ sql.ErrNoRows` shim and `database/sql` import if vet flags them.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestCreateSession|TestCloseSession' -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit**
+- [x] **Step 5: Commit with caveman-commit**
 
 Use `caveman-commit` for the message content, then the commit sequence:
 
@@ -450,7 +450,7 @@ Message subject: `feat(store): mcp session create and close writes`
 - Create: `internal/port/store/sqlite/round_writes.go`
 - Test: `internal/port/store/sqlite/round_writes_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -553,13 +553,13 @@ func mkQuestionRound(id string, number int, questions int) round.QuestionRound {
 
 Add the missing `"github.com/malikbenkirane/grill-chef/internal/domain/session"` import that `mkSess` needs.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestCreateQuestionRound|TestCreateLegendRound' -v`
 
 Expected: FAIL — methods undefined.
 
-- [ ] **Step 3: Implement the round write methods**
+- [x] **Step 3: Implement the round write methods**
 
 ```go
 package sqlite
@@ -625,13 +625,13 @@ func (s *Store) CreateLegendRound(ctx context.Context, lr round.LegendRound) err
 var _ = strings.Contains // drop if vet flags it
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestCreateQuestionRound|TestCreateLegendRound' -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
+- [x] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
 
 Message subject: `feat(store): mcp question and legend round writes`
 
@@ -643,7 +643,7 @@ Message subject: `feat(store): mcp question and legend round writes`
 - Create: `internal/port/store/sqlite/answer_writes.go`
 - Test: `internal/port/store/sqlite/answer_writes_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -709,13 +709,13 @@ func seedSessionRound(t *testing.T, s *Store, id string) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestUpsertAnswer -v`
 
 Expected: FAIL — `UpsertAnswer` undefined.
 
-- [ ] **Step 3: Implement UpsertAnswer**
+- [x] **Step 3: Implement UpsertAnswer**
 
 ```go
 package sqlite
@@ -745,13 +745,13 @@ func (s *Store) UpsertAnswer(ctx context.Context, sessionID string, roundNumber,
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestUpsertAnswer -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
+- [x] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
 
 Message subject: `feat(store): daemon answer autosave upsert with domain sentinels`
 
@@ -763,7 +763,7 @@ Message subject: `feat(store): daemon answer autosave upsert with domain sentine
 - Modify: `internal/port/store/sqlite/answer_writes.go` (SubmitRound, DismissSession)
 - Test: `internal/port/store/sqlite/submit_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -829,13 +829,13 @@ func TestDismissSessionFlipsStatusNotDeletes(t *testing.T) {
 var _ = round.ChoiceIndexNone // import shim, drop if vet flags it
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestSubmitRound|TestDismissSession' -v`
 
 Expected: FAIL — methods undefined.
 
-- [ ] **Step 3: Implement SubmitRound and DismissSession**
+- [x] **Step 3: Implement SubmitRound and DismissSession**
 
 ```go
 // SubmitRound is the daemon's submit path for a pending round. Idempotent:
@@ -881,13 +881,13 @@ func (s *Store) DismissSession(ctx context.Context, id string) error {
 
 Both live in `answer_writes.go` (the daemon's write file). Remove the `round` import from the test file if the compiler flags the shim.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestSubmitRound|TestDismissSession' -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
+- [x] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
 
 Message subject: `feat(store): daemon round submit and station-home dismiss writes`
 
@@ -899,7 +899,7 @@ Message subject: `feat(store): daemon round submit and station-home dismiss writ
 - Create: `internal/port/store/sqlite/comment_writes.go`
 - Test: `internal/port/store/sqlite/comment_writes_test.go`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```go
 package sqlite
@@ -960,13 +960,13 @@ func TestDeleteCommentRemovesExactRow(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestAddComment|TestDeleteComment' -v`
 
 Expected: FAIL — methods undefined.
 
-- [ ] **Step 3: Implement the comment write methods**
+- [x] **Step 3: Implement the comment write methods**
 
 ```go
 package sqlite
@@ -1022,13 +1022,13 @@ func (s *Store) DeleteComment(ctx context.Context, sessionID string, roundNumber
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run 'TestAddComment|TestDeleteComment' -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
+- [x] **Step 5: Commit with caveman-commit (same sequence as Task 2)**
 
 Message subject: `feat(store): daemon comment add and delete with stable per-question seq`
 
@@ -1039,7 +1039,7 @@ Message subject: `feat(store): daemon comment add and delete with stable per-que
 **Files:**
 - Test: `internal/port/store/sqlite/write_race_test.go`
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```go
 package sqlite
@@ -1095,18 +1095,18 @@ func indexOf(s, sub string) int   { return IndexOfHelper(s, sub) }
 
 `errs` and `IndexOfHelper` must be defined: replace the last two helper lines with `func contains(s, sub string) bool { return strings.Contains(s, sub) }` and import `strings`. The vehicle of truth is the code block above in spirit — a worker that finds its compile failing may restructure the helper exactly as the compiler dictates, as long as the semantics (tolerate FK-timing failure, fail on anything else) hold.
 
-- [ ] **Step 2: Run tests to verify they pass**
+- [x] **Step 2: Run tests to verify they pass**
 
 Run: `go test ./internal/port/store/sqlite/ -run TestMCPAndDaemonWritesRace -race -v -count 5`
 
 Expected: PASS on every count; no data race, no corruption.
 
-- [ ] **Step 3: Full package suite under race**
+- [x] **Step 3: Full package suite under race**
 
 Run: `go test ./... -race`
 
 Expected: all `ok`.
 
-- [ ] **Step 4: Commit with caveman-commit (same sequence as Task 2)**
+- [x] **Step 4: Commit with caveman-commit (same sequence as Task 2)**
 
 Message subject: `test(store): mcp and daemon writes race without corruption`
