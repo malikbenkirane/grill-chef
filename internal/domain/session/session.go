@@ -5,6 +5,7 @@ package session
 
 import (
 	"errors"
+	"time"
 
 	"github.com/malikbenkirane/grill-chef/internal/domain/round"
 )
@@ -55,6 +56,11 @@ type Session struct {
 	Name   string
 	Rounds []round.Round
 	Status Status
+
+	// UpdatedAt is the store's staleness commodity (issue 1): it rides
+	// the aggregate after rehydration, but is never consulted for
+	// session consistency correctness.
+	UpdatedAt time.Time
 }
 
 // New opens an active session with the given id and name.
