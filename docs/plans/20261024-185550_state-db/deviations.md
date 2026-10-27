@@ -78,6 +78,44 @@ goose v3.29.0 (the plan was drafted against an earlier goose API draft).
    six-table schema introduces a writer's surface the original table did
    not enumerate.
 
+## 02-writes
+
+9. **Test-snippet compile fixes the plan itself authorized:** 02 Task 1's
+   test block carried a stray brace (removed); `LegendRound.Title` is a
+   plain `string` in the domain, so the tests pass `Title: "legend"`
+   instead of `round.Markdown(...)` (matches 02 Task 6's own
+   `string(l.Title)` handling). No semantic change.
+
+10. **Task 7 race-test helpers collapsed.** The plan's `errs` channel and
+    `contains`/`indexOf`/`IndexOfHelper` helpers were non-compiling as
+    printed; implemented per the plan's own instruction with
+    `strings.Contains` and a buffered channel sized `sessions*2`.
+
+## 03-reads-recovery
+
+11. **`session.Session.UpdatedAt` added during sub-plan 03 Task 2,
+    not 01 Task 2.** 01's design notes and 03 Task 4's staleness test
+    both require `UpdatedAt` on the session aggregate, but 01's Task 2
+    code snippet omitted it. Added with the same staleness-commodity
+    comment as the round fields; LoadSession populates it from
+    `sessions.updated_at`, and `IsSessionConsistent` never consults it.
+
+12. **`qrow.status` dropped exactly as the plan directed:** the plan's
+    Task 2 prose says to drop the status field/SELECT column from the
+    rounds read (the round status is consulted by no reassembly path).
+    `readers.go` scans `round_number, payload, updated_at` only.
+
+13. **Helper renames:** `mustSt` → `mustStamp`, `mustJSONStrings`/`mustReminders`
+    → `jsonStrings`/`jsonReminders` since they swallow parse errors per the
+    plan's design (a fail-hard variant would abort rehydration on any
+    malformed optional field). `parseStamp` semantics unchanged.
+
+14. **03 Task 4's staleness test passed on the first run** once deviation
+    11's field landed — the parse paths (RFC3339 then
+    `2006-01-02 15:04:05`) covered SQLite's `CURRENT_TIMESTAMP` rendering
+    for session, round and legend rows. No probe weakening was needed.
+
+
 No deviations in domain semantics, port surface, schema shape, ownership
 matrix, or test scope. Sub-plans 02 and 03 are untouched and their
 harness (`newTestStore`, `newMemoryStore`) exists as specified.
