@@ -12,9 +12,11 @@ import (
 // ErrAlreadyClosed is returned when closing a closed session.
 var ErrAlreadyClosed = errors.New("session: already closed")
 
-// Status of a session. Two states only: there is no observable
-// "closing" phase in the grill-me flow — the shared-understanding
-// confirmation happens in chat, outside the server.
+// Status of a session. Active while the grill runs; closed once the
+// legend round is submitted; dismissed when the human clears it from the
+// station home. There is no observable "closing" phase in the grill-me
+// flow — the shared-understanding confirmation happens in chat, outside
+// the server.
 type Status int
 
 const (
