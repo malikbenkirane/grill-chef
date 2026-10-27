@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
-	_ "github.com/malikbenkirane/grill-chef/internal/port/store/sqlite/migrations"
 	"github.com/pressly/goose/v3"
 )
 
