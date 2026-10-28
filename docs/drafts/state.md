@@ -57,7 +57,7 @@ tool calls over HTTP only to bounce them back into process-local state.
   when all rounds report submitted. The issue text originally leaned on
   round-count; rounds.md instead ties closing to the final legend payload.
   (The shared-understanding confirmation still lives in chat, per grill-me.)
-- **Daemon pid+port live in a marker file` `daemon.json` next to the db,
+- **Daemon pid+port live in a marker file `daemon.json` next to the db,
   rewritten on bind.** Tried as a sqlite table first (initial issue text) and
   rejected: recovery tooling and the human-only `stop` command would then have
   to open (and checkpoint) a possibly-hot WAL just to learn whether the daemon
